@@ -1,0 +1,70 @@
+# ASP.NET Core
+# Build and test ASP.NET Core projects targeting .NET Core.
+# Add steps that run tests, create a NuGet package, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: "Release"
+  geoLocation: 'West US 2'
+
+  subscriptionId: 'bd2154ae-3b5c-4102-81eb-bf11f1649eab'
+  azureServiceConnection: 'Visual Studio Enterprise (bd2154ae-3b5c-4102-81eb-bf11f1649eab)'
+
+steps:
+  - task: AzureCLI@2
+    displayName: Build ARM JSON template from bicep file
+    inputs:
+      azureSubscription: '$(azureServiceConnection)'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az --version
+        az bicep build --file ./bicep/main.bicep
+
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: 'Validate the template'
+    inputs:
+      deploymentScope: 'Subscription'
+      azureResourceManagerConnection: '$(azureServiceConnection)'
+      subscriptionId: '$(subscriptionId)'
+      location: '$(geoLocation)'
+      csmFile: './bicep/main.json'
+      deploymentMode: Validation
+
+  - task: CopyFiles@2
+    displayName: 'Copy the template'
+    inputs:
+      TargetFolder: '$(build.artifactstagingdirectory)'
+
+  - task: UseDotNet@2
+    displayName: "Install .NET Core SDK"
+    inputs:
+      version: 5.0.x
+      performMultiLevelLookup: true
+
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      command: build
+      projects: "**/*.csproj"
+      arguments: "--configuration $(buildConfiguration)" # Update this to match your need
+
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: publish
+      publishWebProjects: True
+      arguments: "--configuration $(BuildConfiguration) --output $(Build.ArtifactStagingDirectory)"
+      zipAfterPublish: True
+      
+  # this code takes all the files in $(Build.ArtifactStagingDirectory) and uploads them as an artifact of your build.
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Artifact: ReactivityApi'
+    inputs:
+      targetPath: "$(Build.ArtifactStagingDirectory)"
+      artifactName: "ReactivityApi"
