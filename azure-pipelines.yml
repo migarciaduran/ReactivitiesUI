@@ -9,34 +9,62 @@ trigger:
 variables:
   uiSource: 'code'
   uiBuild: "$(uiSource)/build"
+  geoLocation: 'West US 2'
+  subscriptionId: 'bd2154ae-3b5c-4102-81eb-bf11f1649eab'
+  azureServiceConnection: 'Visual Studio Enterprise (bd2154ae-3b5c-4102-81eb-bf11f1649eab)'
 
 pool:
   vmImage: ubuntu-latest
 
 steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '10.x'
-  displayName: 'Install Node.js'
+  - task: AzureCLI@2
+    displayName: Build ARM JSON template from bicep file
+    inputs:
+      azureSubscription: '$(azureServiceConnection)'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az --version
+        az bicep build --file ./bicep/main.bicep
 
-- script: |
-    pushd $(uiSource)
-    npm install
-    npm run build
-    popd
-  displayName: 'npm install and build'
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: 'Validate the template'
+    inputs:
+      deploymentScope: 'Subscription'
+      azureResourceManagerConnection: '$(azureServiceConnection)'
+      subscriptionId: '$(subscriptionId)'
+      location: '$(geoLocation)'
+      csmFile: './bicep/main.json'
+      deploymentMode: Validation
 
-- task: ArchiveFiles@2
-  displayName: 'Archive files'
-  inputs:
-    rootFolderOrFile: '$(uiBuild)'
-    includeRootFolder: false
-    archiveType: zip
-    archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-    replaceExistingArchive: true
+  - task: CopyFiles@2
+    displayName: 'Copy the template'
+    inputs:
+      TargetFolder: '$(build.artifactstagingdirectory)'
 
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '10.x'
+    displayName: 'Install Node.js'
+
+  - script: |
+      pushd $(uiSource)
+      npm install
+      npm run build
+      popd
+    displayName: 'npm install and build'
+
+  - task: ArchiveFiles@2
+    displayName: 'Archive files'
+    inputs:
+      rootFolderOrFile: '$(uiBuild)'
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      replaceExistingArchive: true
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
