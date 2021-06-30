@@ -1,5 +1,5 @@
-# Node.js React Web App to Linux on Azure
-# Build a Node.js React app and deploy it to Azure as a Linux web app.
+# Node.js with React
+# Build a Node.js project that uses React.
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
 
@@ -7,37 +7,64 @@ trigger:
 - main
 
 variables:
+  uiSource: 'code'
+  uiBuild: "$(uiSource)/build"
+  geoLocation: 'West US 2'
+  subscriptionId: 'bd2154ae-3b5c-4102-81eb-bf11f1649eab'
+  azureServiceConnection: 'Visual Studio Enterprise (bd2154ae-3b5c-4102-81eb-bf11f1649eab)'
 
-  # Azure Resource Manager connection created during pipeline creation
-  azureSubscription: '4427b12b-cf11-4868-9841-c9166cb67ab3'
+pool:
+  vmImage: ubuntu-latest
 
-  # Web app name
-  webAppName: 'reactui-ppe-app'
+steps:
+  - task: AzureCLI@2
+    displayName: Build ARM JSON template from bicep file
+    inputs:
+      azureSubscription: '$(azureServiceConnection)'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az --version
+        az bicep build --file ./bicep/main.bicep
 
-  # Environment name
-  environmentName: 'reactui-ppe-app'
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: 'Validate the template'
+    inputs:
+      deploymentScope: 'Subscription'
+      azureResourceManagerConnection: '$(azureServiceConnection)'
+      subscriptionId: '$(subscriptionId)'
+      location: '$(geoLocation)'
+      csmFile: './bicep/main.json'
+      deploymentMode: Validation
 
-  # Agent VM image name
-  vmImageName: 'ubuntu-latest'
+  - task: CopyFiles@2
+    displayName: 'Copy the template'
+    inputs:
+      TargetFolder: '$(build.artifactstagingdirectory)'
 
-stages:
-- stage: Build
-  displayName: Build stage
-  jobs:
-  - job: Build
-    displayName: Build
-    pool:
-      vmImage: $(vmImageName)
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '10.x'
+    displayName: 'Install Node.js'
 
-    steps:
-    - task: ArchiveFiles@2
-      displayName: 'Archive files'
-      inputs:
-        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
-        includeRootFolder: false
-        archiveType: zip
-        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-        replaceExistingArchive: true
+  - script: |
+      pushd $(uiSource)
+      npm install
+      npm run build
+      popd
+    displayName: 'npm install and build'
 
-    - upload: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-      artifact: drop
+  - task: ArchiveFiles@2
+    displayName: 'Archive files'
+    inputs:
+      rootFolderOrFile: '$(uiBuild)'
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      replaceExistingArchive: true
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
