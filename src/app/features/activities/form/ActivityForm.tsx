@@ -1,14 +1,25 @@
 import { observer } from "mobx-react-lite";
 import React, { useState } from "react";
+import { useEffect } from "react";
 import { ChangeEvent } from "react";
+import { Link, useHistory, useParams } from "react-router-dom";
 import { Button, Form, Segment } from "semantic-ui-react";
+import LoadingComponent from "../../../layout/LoadingComponent";
 import { useStore } from "../../../stores/store";
+import { v4 as uuid } from "uuid";
 
 function ActivityForm() {
+  const history = useHistory();
   const { activityStore } = useStore();
-  const { selectedActivity, closeForm , createActivity, updateActivity, loading} = activityStore;
-  
-  const initialState = selectedActivity ?? {
+  const {
+    createActivity,
+    updateActivity,
+    loading,
+    loadActivity,
+    loadingInitial,
+  } = activityStore;
+  const { id } = useParams<{ id: string }>();
+  const [activity, setActivity] = useState({
     id: "",
     title: "",
     category: "",
@@ -17,12 +28,30 @@ function ActivityForm() {
     city: "",
     venue: "",
     isCancelled: false,
-  };
+  });
 
-  const [activity, setActivity] = useState(initialState);
+  useEffect(() => {
+    if (id) {
+      loadActivity(id).then((activity) => {
+        setActivity(activity!);
+      });
+    }
+  }, [id, loadActivity]);
 
   function handleSubmit() {
-    activity.id ? updateActivity(activity) : createActivity(activity)
+    if (activity.id.length === 0) {
+      let newActivity = {
+        ...activity,
+        id: uuid(),
+      };
+      createActivity(newActivity).then(() => {
+        history.push(`/activities/${newActivity.id}`);
+      });
+    } else {
+      updateActivity(activity).then(() => {
+        history.push(`/activities/${activity.id}`);
+      });
+    }
   }
 
   function handleInputChange(
@@ -31,6 +60,8 @@ function ActivityForm() {
     const { name, value } = event.target;
     setActivity({ ...activity, [name]: value });
   }
+
+  if (loadingInitial) return <LoadingComponent content="Loading activity..." />;
 
   return (
     <Segment clearing>
@@ -79,12 +110,7 @@ function ActivityForm() {
           type="submit"
           content="Submit"
         />
-        <Button
-          onClick={closeForm}
-          floated="right"
-          type="button"
-          content="Cancel"
-        />
+        <Button as={Link} to='/activities' floated="right" type="button" content="Cancel" />
       </Form>
     </Segment>
   );
