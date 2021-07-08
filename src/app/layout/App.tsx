@@ -15,6 +15,7 @@ import ServerError from "../stores/ServerError";
 import LoginForm from "../features/users/LoginForm";
 import { useStore } from "../stores/store";
 import LoadingComponent from "./LoadingComponent";
+import ModalContainer from "../common/modals/ModalContainer";
 
 function App() {
   const location = useLocation();
@@ -22,19 +23,20 @@ function App() {
 
   useEffect(() => {
     if (commonStore.token) {
-      userStore.getUser().finally(() => commonStore.setAppLoaded())
+      userStore.getUser().finally(() => commonStore.setAppLoaded());
     } else {
       commonStore.setAppLoaded();
     }
-  }, [commonStore, userStore])
+  }, [commonStore, userStore]);
 
-  if (!commonStore.appLoaded){
-    <LoadingComponent content="Loading app..." />
+  if (!commonStore.appLoaded) {
+    <LoadingComponent content="Loading app..." />;
   }
 
   return (
     <>
       <ToastContainer position="bottom-right" hideProgressBar />
+      <ModalContainer />
       <Route exact path="/" component={HomePage} />
       <Route
         path={"/(.+)"}

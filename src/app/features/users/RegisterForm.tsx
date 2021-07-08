@@ -4,27 +4,42 @@ import React from "react";
 import { Button, Header, Label } from "semantic-ui-react";
 import MyTextInput from "../../common/form/MyTextInput";
 import { useStore } from "../../stores/store";
+import * as Yup from "yup";
 
-function LoginForm() {
+function RegisterForm() {
   const { userStore } = useStore();
 
   return (
     <Formik
-      initialValues={{ email: "", password: "", error: null }}
+      initialValues={{
+        displayName: "",
+        username: "",
+        email: "",
+        password: "",
+        error: null,
+      }}
       onSubmit={(values, { setErrors }) =>
         userStore
-          .login(values)
-          .catch((error) => setErrors({ error: "Inalid email or password" }))
+          .register(values)
+          .catch((error) => setErrors({ error: "Invalid email or password" }))
       }
+      validationSchema={Yup.object({
+        displayName: Yup.string().required(),
+        username: Yup.string().required(),
+        email: Yup.string().required().email(),
+        password: Yup.string().required(),
+      })}
     >
-      {({ handleSubmit, isSubmitting, errors }) => (
+      {({ handleSubmit, isSubmitting, errors, isValid, dirty }) => (
         <Form className="ui form" onSubmit={handleSubmit} autoComplete="off">
           <Header
             as="h2"
-            content="Login to Reactivities"
+            content="Sign up to Reactivities"
             color="teal"
             textAlign="center"
           />
+          <MyTextInput name="displayName" placeholder="Display Name" />
+          <MyTextInput name="username" placeholder="Username" />
           <MyTextInput name="email" placeholder="Email" />
           <MyTextInput name="password" placeholder="Password" type="password" />
           <ErrorMessage
@@ -39,9 +54,10 @@ function LoginForm() {
             )}
           />
           <Button
+            disabled={!isValid || !dirty || isSubmitting}
             loading={isSubmitting}
             positive
-            content="Login"
+            content="Register"
             type="submit"
             fluid
           />
@@ -51,4 +67,4 @@ function LoginForm() {
   );
 }
 
-export default observer(LoginForm);
+export default observer(RegisterForm);
